@@ -1,0 +1,52 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ink-navy: #1b114d;
+  --color-ink-navy-soft: #2a1e63;
+  --color-ink-navy-softer: #382b78;
+  --color-ink-navy-deep: #170d42;
+
+  --color-canopy: #67b82f;
+  --color-canopy-dark: #4c8f21;
+  --color-forest-deep: #2f5d1a;
+  --color-sage: #afcb80;
+
+  --color-paper: #f5f3ea;
+  --color-paper-raised: #ffffff;
+  --color-line: #e6e1d3;
+
+  --color-ink: #2c2438;
+  --color-ink-soft: #6e667c;
+  --color-ink-placeholder: #9c93ad;
+  --color-on-dark: #efebfa;
+
+  --color-amber: #c97f2e;
+  --color-amber-soft: #f4e3ce;
+  --color-amber-text: #8c5417;
+  --color-amber-badge-text: #241505;
+
+  --color-danger: #c1443b;
+  --color-danger-text: #a6392f;
+
+  --font-display: "Fraunces", Georgia, serif;
+  --font-sans: "Manrope", sans-serif;
+  --font-body: var(--font-sans);
+  --font-mono: "IBM Plex Mono", monospace;
+
+  --radius-control: 11px;
+  --radius-card: 18px;
+
+  --shadow-card:
+    0 1px 2px rgba(27, 17, 77, 0.06),
+    0 1px 1px rgba(27, 17, 77, 0.04);
+
+  --shadow-hero:
+    0 8px 24px -12px rgba(27, 17, 77, 0.22);
+}
+
+:root {
+  --layout-sidebar-width: 260px;
+  --layout-content-max: 1360px;
+
+  --default-font-family: var(--font-sans);
+}
