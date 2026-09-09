@@ -1,9 +1,9 @@
-import { Sidebar } from "../../components/sidebar";
+import DashboardKpis from "../../components/dashboard-kpis";
 
 export default function DashboardPage() {
   return (
-    <div className="flex min-h-screen w-full bg-paper">
-      <Sidebar />
+    <div className="p-8.5">
+      <DashboardKpis />
     </div>
-  )
+  );
 }
