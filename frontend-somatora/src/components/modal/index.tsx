@@ -6,9 +6,16 @@ export interface ModalProps {
   onClose: () => void;
   title: string;
   children: ReactNode;
+  /** "md" (padrão) cabe formulários; "lg" dá mais espaço para tabelas de prévia. */
+  size?: "md" | "lg";
 }
 
-export default function Modal({ open, onClose, title, children }: ModalProps) {
+const sizeClass = {
+  md: "max-w-2xl",
+  lg: "max-w-5xl",
+};
+
+export default function Modal({ open, onClose, title, children, size = "md" }: ModalProps) {
   useEffect(() => {
     if (!open) return;
 
@@ -33,7 +40,7 @@ export default function Modal({ open, onClose, title, children }: ModalProps) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-title"
-        className="flex max-h-full w-full max-w-2xl flex-col overflow-hidden rounded-card bg-paper-raised shadow-hero"
+        className={`flex max-h-full w-full ${sizeClass[size]} flex-col overflow-hidden rounded-card bg-paper-raised shadow-hero`}
       >
         <div className="flex shrink-0 items-center justify-between border-b border-line px-6 py-4.5">
           <h2 id="modal-title" className="font-display text-lg font-semibold text-ink-navy">

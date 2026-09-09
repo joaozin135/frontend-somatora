@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { getReceipts, type Receipt } from "../../services/receipts";
 import { computeReconciliation } from "./stats";
 import ComplementaryInvoiceModal from "./complementary-invoice-modal";
+import StatementPanel from "./statement-panel";
 
 function currentMonthValue() {
   const now = new Date();
@@ -24,6 +25,7 @@ export default function ReconciliationPage() {
   const [error, setError] = useState("");
   const [month, setMonth] = useState(currentMonthValue());
   const [activeSupplier, setActiveSupplier] = useState<string | null>(null);
+  const [statementSupplier, setStatementSupplier] = useState<string | null>(null);
 
   const loadReceipts = useCallback(async () => {
     setLoading(true);
@@ -136,15 +138,24 @@ export default function ReconciliationPage() {
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 text-ink">{formatCurrency(row.pendingValue)}</td>
                   <td className="whitespace-nowrap px-4 py-3">
-                    {row.pendingReceiptIds.length > 0 && (
+                    <div className="flex items-center gap-2">
                       <button
                         type="button"
-                        onClick={() => setActiveSupplier(row.supplier)}
-                        className="rounded-control bg-canopy px-3 py-1.5 text-[12px] font-bold text-white transition hover:bg-canopy-dark"
+                        onClick={() => setStatementSupplier(row.supplier)}
+                        className="rounded-control border border-line px-3 py-1.5 text-[12px] font-bold text-ink transition hover:bg-paper"
                       >
-                        Lançar complementar
+                        Emitir relatório
                       </button>
-                    )}
+                      {row.pendingReceiptIds.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setActiveSupplier(row.supplier)}
+                          className="rounded-control bg-canopy px-3 py-1.5 text-[12px] font-bold text-white transition hover:bg-canopy-dark"
+                        >
+                          Lançar complementar
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -159,6 +170,15 @@ export default function ReconciliationPage() {
           receipts={activeSupplierReceipts}
           onClose={() => setActiveSupplier(null)}
           onCreated={handleLinked}
+        />
+      )}
+
+      {statementSupplier && (
+        <StatementPanel
+          supplier={statementSupplier}
+          month={month}
+          receipts={receipts}
+          onClose={() => setStatementSupplier(null)}
         />
       )}
     </div>
