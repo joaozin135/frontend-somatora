@@ -2,7 +2,7 @@ import { createBrowserRouter } from "react-router";
 import LoginPage from "../pages/login";
 import Layout from "../components/layoult";
 import DashboardPage from "../pages/dashboard";
-
+import WeighingPage from "../pages/weighing";
 
 /**
  * Formato do `handle` de cada rota — é isso que o Layout lê via useMatches()
@@ -46,14 +46,23 @@ const router = createBrowserRouter([
           subtitle: formatToday(),
         }),
       },
-      // próximas rotas entram aqui, cada uma com seu próprio handle:
-      // {
-      //   path: "/usuarios",
-      //   element: <UsuariosPage />,
-      //   handle: { title: "Usuários", subtitle: "Gerencie quem tem acesso ao sistema" } satisfies RouteHandle,
-      // },
+
+      {
+        path: "/pesagens",
+        element: <WeighingPage />,
+        handle: {
+          title: "Pesagens",
+          subtitle: "Gerencie as pesagens do dia",
+        } satisfies RouteHandle,
+      },
     ],
   },
+  // próximas rotas entram aqui, cada uma com seu próprio handle:
+  // {
+  //   path: "/usuarios",
+  //   element: <UsuariosPage />,
+  //   handle: { title: "Usuários", subtitle: "Gerencie quem tem acesso ao sistema" } satisfies RouteHandle,
+  // },
 ]);
 
 export default router;
