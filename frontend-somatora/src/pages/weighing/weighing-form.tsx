@@ -1,8 +1,9 @@
 import { useState, type FormEvent, type ReactNode } from "react";
-import { AlertTriangle } from "lucide-react";
+import { isAxiosError } from "axios";
 import {
   createReceipt,
   diameterClassLabels,
+  woodClassLabels,
   WoodClass,
   DiameterClass,
   type Receipt,
@@ -18,7 +19,7 @@ interface FormState {
   supplier: string;
   farm: string;
   length: string;
-  woodClass: WoodClass | "SEGUNDA_TORA" | "";
+  woodClass: WoodClass | "";
   diameterClass: DiameterClass | "";
   truckPlate: string;
   trailerPlate: string;
@@ -57,6 +58,15 @@ function Field({ label, htmlFor, children }: { label: string; htmlFor: string; c
   );
 }
 
+function extractErrorMessage(err: unknown): string {
+  if (isAxiosError(err)) {
+    const message = err.response?.data?.message;
+    if (Array.isArray(message)) return message.join(" ");
+    if (typeof message === "string") return message;
+  }
+  return "Não foi possível registrar a pesagem. Tente novamente.";
+}
+
 export default function WeighingForm({ onCancel, onCreated }: WeighingFormProps) {
   const [form, setForm] = useState<FormState>(initialState);
   const [submitting, setSubmitting] = useState(false);
@@ -75,30 +85,46 @@ export default function WeighingForm({ onCancel, onCreated }: WeighingFormProps)
     e.preventDefault();
     setError("");
 
-    if (form.woodClass === "SEGUNDA_TORA") {
-      setError('A classe "Segunda Tora" ainda não é aceita pela API — fale com o time antes de usar essa opção.');
+    if (
+      !form.invoiceNumber ||
+      !form.supplier ||
+      !form.farm ||
+      !form.length ||
+      !form.woodClass ||
+      !form.diameterClass ||
+      !form.truckPlate ||
+      !form.driver ||
+      !form.grossWeight ||
+      !form.tareWeight
+    ) {
+      setError("Preencha todos os campos obrigatórios.");
       return;
     }
 
-    if (!form.woodClass || !form.diameterClass) {
-      setError("Selecione a classe da madeira e o diâmetro.");
-      return;
-    }
-
-    if (netWeight !== null && netWeight < 0) {
-      setError("O peso bruto não pode ser menor que o peso vazio.");
+    if (netWeight !== null && netWeight <= 0) {
+      setError("O peso bruto deve ser maior que o peso vazio.");
       return;
     }
 
     setSubmitting(true);
     try {
       const receipt = await createReceipt({
+        invoiceNumber: form.invoiceNumber,
+        supplier: form.supplier,
+        farm: form.farm,
+        length: Number(form.length.replace(",", ".")),
         type: form.woodClass,
         diameterClass: form.diameterClass,
+        truckPlate: form.truckPlate,
+        trailerPlate: form.trailerPlate || undefined,
+        driver: form.driver,
+        notes: form.notes || undefined,
+        grossWeight: gross,
+        tareWeight: tare,
       });
       onCreated(receipt);
-    } catch {
-      setError("Não foi possível registrar a pesagem. Tente novamente.");
+    } catch (err) {
+      setError(extractErrorMessage(err));
     } finally {
       setSubmitting(false);
     }
@@ -106,14 +132,6 @@ export default function WeighingForm({ onCancel, onCreated }: WeighingFormProps)
 
   return (
     <form onSubmit={handleSubmit} noValidate className="space-y-5">
-      <div className="flex items-start gap-2.5 rounded-control border border-amber/30 bg-amber-soft/60 px-3.5 py-3 text-[12px] leading-relaxed text-amber-text">
-        <AlertTriangle className="mt-0.5 h-3.75 w-3.75 shrink-0" strokeWidth={2} />
-        <p>
-          Por enquanto a API só grava <strong>classe da madeira</strong> e <strong>diâmetro</strong>. Os demais
-          campos abaixo já seguem o padrão do romaneio, mas serão persistidos assim que o backend for atualizado.
-        </p>
-      </div>
-
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label="Nº da nota fiscal" htmlFor="invoiceNumber">
           <input
@@ -166,11 +184,11 @@ export default function WeighingForm({ onCancel, onCreated }: WeighingFormProps)
             <option value="" disabled>
               Selecione…
             </option>
-            <option value={WoodClass.PE}>Pé</option>
-            <option value={WoodClass.BICA}>Bica</option>
-            <option value="SEGUNDA_TORA" disabled title="Ainda não suportado pela API">
-              Segunda Tora (em breve)
-            </option>
+            {Object.entries(woodClassLabels).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
           </select>
         </Field>
 

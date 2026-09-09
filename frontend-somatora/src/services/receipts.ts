@@ -3,12 +3,14 @@ import { api } from "./api";
 export const WoodClass = {
   PE: "PE",
   BICA: "BICA",
+  SEGUNDA_TORA: "SEGUNDA_TORA",
 } as const;
 export type WoodClass = (typeof WoodClass)[keyof typeof WoodClass];
 
 export const woodClassLabels: Record<WoodClass, string> = {
   PE: "Pé",
   BICA: "Bica",
+  SEGUNDA_TORA: "Segunda Tora",
 };
 
 export const DiameterClass = {
@@ -26,14 +28,35 @@ export const diameterClassLabels: Record<DiameterClass, string> = {
 
 export interface Receipt {
   id: string;
+  invoiceNumber: string;
+  supplier: string;
+  farm: string;
+  length: number;
   type: WoodClass;
   diameterClass: DiameterClass;
+  truckPlate: string;
+  trailerPlate: string | null;
+  driver: string;
+  notes: string | null;
+  grossWeight: number;
+  tareWeight: number;
+  netWeight: number;
   createdAt: string;
 }
 
 export interface CreateReceiptPayload {
+  invoiceNumber: string;
+  supplier: string;
+  farm: string;
+  length: number;
   type: WoodClass;
   diameterClass: DiameterClass;
+  truckPlate: string;
+  trailerPlate?: string;
+  driver: string;
+  notes?: string;
+  grossWeight: number;
+  tareWeight: number;
 }
 
 export async function getReceipts(): Promise<Receipt[]> {

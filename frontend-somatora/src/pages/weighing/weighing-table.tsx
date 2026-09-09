@@ -24,6 +24,10 @@ function formatDate(value: string) {
   return new Date(value).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
 }
 
+function formatKg(value: number) {
+  return `${value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} kg`;
+}
+
 export default function WeighingTable({ receipts }: WeighingTableProps) {
   if (receipts.length === 0) {
     return (
@@ -52,16 +56,18 @@ export default function WeighingTable({ receipts }: WeighingTableProps) {
           {receipts.map((receipt) => (
             <tr key={receipt.id} className="border-b border-line last:border-0 hover:bg-paper/60">
               <td className="whitespace-nowrap px-4 py-3 text-ink">{formatDate(receipt.createdAt)}</td>
-              <td className="px-4 py-3">{dash}</td>
-              <td className="px-4 py-3">{dash}</td>
-              <td className="px-4 py-3">{dash}</td>
-              <td className="px-4 py-3">{dash}</td>
+              <td className="whitespace-nowrap px-4 py-3 text-ink">{receipt.invoiceNumber}</td>
+              <td className="whitespace-nowrap px-4 py-3 text-ink">{receipt.supplier}</td>
+              <td className="whitespace-nowrap px-4 py-3 text-ink">{receipt.farm}</td>
+              <td className="whitespace-nowrap px-4 py-3 text-ink">
+                {receipt.length.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} m
+              </td>
               <td className="whitespace-nowrap px-4 py-3 font-semibold text-ink">{woodClassLabels[receipt.type]}</td>
               <td className="whitespace-nowrap px-4 py-3 text-ink">{diameterClassLabels[receipt.diameterClass]}</td>
-              <td className="px-4 py-3">{dash}</td>
-              <td className="px-4 py-3">{dash}</td>
-              <td className="px-4 py-3">{dash}</td>
-              <td className="px-4 py-3">{dash}</td>
+              <td className="whitespace-nowrap px-4 py-3 text-ink">{receipt.truckPlate}</td>
+              <td className="whitespace-nowrap px-4 py-3 text-ink">{receipt.trailerPlate ?? dash}</td>
+              <td className="whitespace-nowrap px-4 py-3 text-ink">{receipt.driver}</td>
+              <td className="whitespace-nowrap px-4 py-3 font-semibold text-ink">{formatKg(receipt.netWeight)}</td>
             </tr>
           ))}
         </tbody>
