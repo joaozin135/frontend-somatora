@@ -3,6 +3,7 @@ import LoginPage from "../pages/login";
 import Layout from "../components/layoult";
 import DashboardPage from "../pages/dashboard";
 import WeighingPage from "../pages/weighing";
+import ReconciliationPage from "../pages/reconciliation";
 
 /**
  * Formato do `handle` de cada rota — é isso que o Layout lê via useMatches()
@@ -53,6 +54,14 @@ const router = createBrowserRouter([
         handle: {
           title: "Pesagens",
           subtitle: "Gerencie as pesagens do dia",
+        } satisfies RouteHandle,
+      },
+      {
+        path: "/relatorios",
+        element: <ReconciliationPage />,
+        handle: {
+          title: "Relatórios",
+          subtitle: "Fechamento de notas complementares",
         } satisfies RouteHandle,
       },
     ],

@@ -26,6 +26,14 @@ export const diameterClassLabels: Record<DiameterClass, string> = {
   ABOVE_33: "Acima de 33",
 };
 
+export interface ComplementaryInvoiceSummary {
+  id: string;
+  number: string;
+  supplier: string;
+  totalWeight: number;
+  issueDate: string;
+}
+
 export interface Receipt {
   id: string;
   invoiceNumber: string;
@@ -41,6 +49,10 @@ export interface Receipt {
   grossWeight: number;
   tareWeight: number;
   netWeight: number;
+  invoiceWeight: number | null;
+  pricePerTon: number | null;
+  complementaryInvoiceId: string | null;
+  complementaryInvoice: ComplementaryInvoiceSummary | null;
   createdAt: string;
 }
 
@@ -57,6 +69,8 @@ export interface CreateReceiptPayload {
   notes?: string;
   grossWeight: number;
   tareWeight: number;
+  invoiceWeight: number;
+  pricePerTon: number;
 }
 
 export async function getReceipts(): Promise<Receipt[]> {

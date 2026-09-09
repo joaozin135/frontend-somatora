@@ -16,6 +16,8 @@ export interface WeighingFormProps {
 
 interface FormState {
   invoiceNumber: string;
+  invoiceWeight: string;
+  pricePerTon: string;
   supplier: string;
   farm: string;
   length: string;
@@ -31,6 +33,8 @@ interface FormState {
 
 const initialState: FormState = {
   invoiceNumber: "",
+  invoiceWeight: "",
+  pricePerTon: "",
   supplier: "",
   farm: "",
   length: "",
@@ -81,12 +85,18 @@ export default function WeighingForm({ onCancel, onCreated }: WeighingFormProps)
   const hasWeights = form.grossWeight !== "" && form.tareWeight !== "" && !Number.isNaN(gross) && !Number.isNaN(tare);
   const netWeight = hasWeights ? gross - tare : null;
 
+  const invoiceWeight = Number(form.invoiceWeight);
+  const hasInvoiceDiff = netWeight !== null && form.invoiceWeight !== "" && !Number.isNaN(invoiceWeight);
+  const invoiceDiff = hasInvoiceDiff ? netWeight! - invoiceWeight : null;
+
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError("");
 
     if (
       !form.invoiceNumber ||
+      !form.invoiceWeight ||
+      !form.pricePerTon ||
       !form.supplier ||
       !form.farm ||
       !form.length ||
@@ -110,6 +120,8 @@ export default function WeighingForm({ onCancel, onCreated }: WeighingFormProps)
     try {
       const receipt = await createReceipt({
         invoiceNumber: form.invoiceNumber,
+        invoiceWeight: Number(form.invoiceWeight),
+        pricePerTon: Number(form.pricePerTon.replace(",", ".")),
         supplier: form.supplier,
         farm: form.farm,
         length: Number(form.length.replace(",", ".")),
@@ -140,6 +152,34 @@ export default function WeighingForm({ onCancel, onCreated }: WeighingFormProps)
             value={form.invoiceNumber}
             onChange={(e) => update("invoiceNumber", e.target.value)}
             placeholder="Ex: 123456"
+          />
+        </Field>
+
+        <Field label="Tonelada da NF (kg)" htmlFor="invoiceWeight">
+          <input
+            id="invoiceWeight"
+            type="number"
+            min="0"
+            step="0.01"
+            inputMode="decimal"
+            className={inputClass}
+            value={form.invoiceWeight}
+            onChange={(e) => update("invoiceWeight", e.target.value)}
+            placeholder="0,00"
+          />
+        </Field>
+
+        <Field label="Valor por tonelada (R$)" htmlFor="pricePerTon">
+          <input
+            id="pricePerTon"
+            type="number"
+            min="0"
+            step="0.01"
+            inputMode="decimal"
+            className={inputClass}
+            value={form.pricePerTon}
+            onChange={(e) => update("pricePerTon", e.target.value)}
+            placeholder="0,00"
           />
         </Field>
 
@@ -278,6 +318,15 @@ export default function WeighingForm({ onCancel, onCreated }: WeighingFormProps)
             value={netWeight !== null ? netWeight.toLocaleString("pt-BR", { minimumFractionDigits: 2 }) : ""}
             placeholder="Calculado automaticamente"
           />
+          {invoiceDiff !== null && (
+            <p className="mt-1.5 text-[11.5px] text-ink-soft">
+              {invoiceDiff > 0
+                ? `${invoiceDiff.toLocaleString("pt-BR")} kg acima da NF — vai precisar de complementar.`
+                : invoiceDiff < 0
+                  ? `${Math.abs(invoiceDiff).toLocaleString("pt-BR")} kg abaixo da NF.`
+                  : "Bate exatamente com a NF."}
+            </p>
+          )}
         </Field>
       </div>
 

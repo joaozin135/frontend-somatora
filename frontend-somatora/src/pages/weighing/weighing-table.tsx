@@ -7,6 +7,7 @@ export interface WeighingTableProps {
 const columns = [
   "Data",
   "Nota Fiscal",
+  "Peso NF",
   "Fornecedor",
   "Fazenda",
   "Comprimento",
@@ -16,6 +17,7 @@ const columns = [
   "Placa Julieta",
   "Motorista",
   "Peso Líquido",
+  "Status",
 ];
 
 const dash = <span className="text-ink-placeholder">—</span>;
@@ -26,6 +28,29 @@ function formatDate(value: string) {
 
 function formatKg(value: number) {
   return `${value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} kg`;
+}
+
+function StatusBadge({ receipt }: { receipt: Receipt }) {
+  if (receipt.complementaryInvoice) {
+    return (
+      <span
+        className="inline-flex items-center rounded-full bg-canopy/14 px-2 py-0.5 text-[11px] font-bold text-forest-deep"
+        title={`Complementada pela NF ${receipt.complementaryInvoice.number}`}
+      >
+        Complementada
+      </span>
+    );
+  }
+
+  if (receipt.invoiceWeight !== null && receipt.netWeight > receipt.invoiceWeight) {
+    return (
+      <span className="inline-flex items-center rounded-full bg-amber-soft px-2 py-0.5 text-[11px] font-bold text-amber-text">
+        Pendente
+      </span>
+    );
+  }
+
+  return dash;
 }
 
 export default function WeighingTable({ receipts }: WeighingTableProps) {
@@ -39,7 +64,7 @@ export default function WeighingTable({ receipts }: WeighingTableProps) {
 
   return (
     <div className="overflow-x-auto rounded-card border border-line bg-paper-raised shadow-card">
-      <table className="w-full min-w-240 border-collapse text-left text-[13px]">
+      <table className="w-full min-w-260 border-collapse text-left text-[13px]">
         <thead>
           <tr className="border-b border-line bg-paper">
             {columns.map((column) => (
@@ -57,6 +82,9 @@ export default function WeighingTable({ receipts }: WeighingTableProps) {
             <tr key={receipt.id} className="border-b border-line last:border-0 hover:bg-paper/60">
               <td className="whitespace-nowrap px-4 py-3 text-ink">{formatDate(receipt.createdAt)}</td>
               <td className="whitespace-nowrap px-4 py-3 text-ink">{receipt.invoiceNumber}</td>
+              <td className="whitespace-nowrap px-4 py-3 text-ink">
+                {receipt.invoiceWeight !== null ? formatKg(receipt.invoiceWeight) : dash}
+              </td>
               <td className="whitespace-nowrap px-4 py-3 text-ink">{receipt.supplier}</td>
               <td className="whitespace-nowrap px-4 py-3 text-ink">{receipt.farm}</td>
               <td className="whitespace-nowrap px-4 py-3 text-ink">
@@ -68,6 +96,9 @@ export default function WeighingTable({ receipts }: WeighingTableProps) {
               <td className="whitespace-nowrap px-4 py-3 text-ink">{receipt.trailerPlate ?? dash}</td>
               <td className="whitespace-nowrap px-4 py-3 text-ink">{receipt.driver}</td>
               <td className="whitespace-nowrap px-4 py-3 font-semibold text-ink">{formatKg(receipt.netWeight)}</td>
+              <td className="whitespace-nowrap px-4 py-3">
+                <StatusBadge receipt={receipt} />
+              </td>
             </tr>
           ))}
         </tbody>
