@@ -1,6 +1,6 @@
 import { useState, type ChangeEvent, type ReactNode } from "react";
 import { Search, Bell, CircleHelp } from "lucide-react";
-import { jwtDecode } from "jwt-decode";
+import { useAuth } from "../../contexts/authContext";
 
 /**
  * Topbar — SOMAPAR
@@ -11,11 +11,6 @@ import { jwtDecode } from "jwt-decode";
  *   <Topbar title="Bom dia, Ana." subtitle="Terça-feira, 8 de setembro de 2026" notificationCount={2} />
  *   <Topbar title="Usuários" subtitle="Gerencie quem tem acesso ao sistema" searchPlaceholder="Filtrar por nome ou e-mail…" />
  */
-interface UserToken {
-    sub: string;
-    email: string;
-    name: string;
-}
 export interface TopbarProps {
   title: string;
   subtitle?: string;
@@ -38,22 +33,14 @@ export default function Topbar({
   actions,
 }: TopbarProps) {
   const [query, setQuery] = useState("");
+  const { user } = useAuth();
 
   function handleSearchChange(e: ChangeEvent<HTMLInputElement>) {
     setQuery(e.target.value);
     onSearch?.(e.target.value);
   }
 
-  const token = localStorage.getItem("access_token") || sessionStorage.getItem("access_token");
-  console.log("TOPBAR");
-console.log("Local:", localStorage.getItem("access_token"));
-console.log("Session:", sessionStorage.getItem("access_token"));
-  let userName = "";
-
-  if (token) {
-    const payload = jwtDecode<UserToken>(token);
-    userName = payload.name;
-  }
+  const userName = user?.name ?? "";
 
   const hour = new Date().getHours();
   let greeting = "";

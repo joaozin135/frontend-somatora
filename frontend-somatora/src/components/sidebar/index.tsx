@@ -11,6 +11,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import logoIcon from "../../assets/somapar-icon.png";
+import { useAuth } from "../../contexts/authContext";
 
 interface NavItemConfig {
   key: string;
@@ -28,7 +29,6 @@ export interface SidebarUser {
 
 export interface SidebarProps {
   reportsCount?: number;
-  user?: SidebarUser;
 }
 
 const operacaoItems: NavItemConfig[] = [
@@ -47,9 +47,31 @@ function buildGestaoItems(reportsCount: number): NavItemConfig[] {
   ];
 }
 
-const DEFAULT_USER: SidebarUser = { name: "Usuário", role: "—", initials: "US" };
 
-export default function Sidebar({ reportsCount = 0, user = DEFAULT_USER }: SidebarProps) {
+export default function Sidebar({ reportsCount = 0 }: SidebarProps) {
+  const { user: authUser } = useAuth();
+
+  let user: SidebarUser = {
+    name: "Usuário",
+    role: "—",
+    initials: "US",
+  };
+
+  if (authUser) {
+    const initials = authUser.name
+      .split(" ")
+      .map((name) => name[0])
+      .slice(0, 2)
+      .join("")
+      .toUpperCase();
+
+    user = {
+      name: authUser.name,
+      role: authUser.role,
+      initials,
+    };
+  }
+
   return (
     <aside className="sticky top-0 flex h-screen w-65 shrink-0 flex-col bg-linear-to-b from-ink-navy to-ink-navy-deep px-4 py-5.5 text-on-dark">
       {/* Marca */}

@@ -1,7 +1,9 @@
 import { useState } from "react";
 import logoIcon from "../../assets/somapar-icon.png";
+import { useAuth } from "../../contexts/authContext";
 
 export default function LoginPage() {
+  const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [remember, setRemember] = useState(false);
@@ -27,15 +29,7 @@ export default function LoginPage() {
         throw new Error(data.message ?? "Credenciais inválidas");
       }
 
-      localStorage.removeItem("access_token");
-      sessionStorage.removeItem("access_token");
-
-      const storage = remember ? localStorage : sessionStorage;
-      storage.setItem("access_token", data.access_token);
-      console.log("Remember:", remember);
-      console.log("Local:", localStorage.getItem("access_token"));
-      console.log("Session:", sessionStorage.getItem("access_token"));
-      console.log("Login bem-sucedido:", data);
+      login(data.access_token, remember);
       window.location.href = "/dashboard"; // Redireciona para a página do dashboard
 
     } catch (err) {
