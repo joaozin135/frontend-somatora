@@ -2,7 +2,8 @@ import type { DiameterClass, Receipt, WoodClass } from "../../services/receipts"
 
 export interface StatementFilters {
   supplier: string;
-  month: string;
+  startDate: string;
+  endDate: string;
   driver?: string;
   type?: WoodClass;
   diameterClass?: DiameterClass;
@@ -21,23 +22,32 @@ export interface Statement {
   totals: StatementTotals;
 }
 
-/** Pesagens do fornecedor+mês, antes dos filtros de motorista/classe/diâmetro — usado para popular as opções desses filtros. */
-export function receiptsForSupplierMonth(receipts: Receipt[], supplier: string, month: string): Receipt[] {
-  const [year, monthIndex] = month.split("-").map(Number);
-  return receipts.filter((r) => {
-    if (r.supplier !== supplier) return false;
-    const created = new Date(r.createdAt);
-    return created.getFullYear() === year && created.getMonth() + 1 === monthIndex;
-  });
+function isWithinRange(createdAt: string, startDate: string, endDate: string): boolean {
+  const created = new Date(createdAt).getTime();
+  const start = new Date(`${startDate}T00:00:00`).getTime();
+  const end = new Date(`${endDate}T23:59:59.999`).getTime();
+  return created >= start && created <= end;
+}
+
+/** Pesagens do fornecedor no período, antes dos filtros de motorista/classe/diâmetro — usado para popular as opções desses filtros. */
+export function receiptsForSupplierRange(
+  receipts: Receipt[],
+  supplier: string,
+  startDate: string,
+  endDate: string,
+): Receipt[] {
+  return receipts.filter((r) => r.supplier === supplier && isWithinRange(r.createdAt, startDate, endDate));
 }
 
 export function buildStatement(receipts: Receipt[], filters: StatementFilters): Statement {
-  const scoped = receiptsForSupplierMonth(receipts, filters.supplier, filters.month).filter((r) => {
-    if (filters.driver && r.driver !== filters.driver) return false;
-    if (filters.type && r.type !== filters.type) return false;
-    if (filters.diameterClass && r.diameterClass !== filters.diameterClass) return false;
-    return true;
-  });
+  const scoped = receiptsForSupplierRange(receipts, filters.supplier, filters.startDate, filters.endDate).filter(
+    (r) => {
+      if (filters.driver && r.driver !== filters.driver) return false;
+      if (filters.type && r.type !== filters.type) return false;
+      if (filters.diameterClass && r.diameterClass !== filters.diameterClass) return false;
+      return true;
+    },
+  );
 
   const rows = [...scoped].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 

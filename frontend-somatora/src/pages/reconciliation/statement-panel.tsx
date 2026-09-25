@@ -10,7 +10,7 @@ import {
   type Receipt,
   type WoodClass as WoodClassType,
 } from "../../services/receipts";
-import { buildStatement, receiptsForSupplierMonth, type StatementFilters } from "./statement";
+import { buildStatement, receiptsForSupplierRange, type StatementFilters } from "./statement";
 import { exportStatementToPdf, exportStatementToXlsx } from "./export";
 
 export interface StatementPanelProps {
@@ -35,25 +35,40 @@ function statusLabel(receipt: Receipt) {
   return "—";
 }
 
+/** "2026-09" -> {start: "2026-09-01", end: "2026-09-30"} — usado só como ponto de partida do período. */
+function monthToDateRange(month: string): { start: string; end: string } {
+  const [year, monthIndex] = month.split("-").map(Number);
+  const lastDay = new Date(year, monthIndex, 0).getDate();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return {
+    start: `${year}-${pad(monthIndex)}-01`,
+    end: `${year}-${pad(monthIndex)}-${pad(lastDay)}`,
+  };
+}
+
 export default function StatementPanel({ supplier, month, receipts, onClose }: StatementPanelProps) {
+  const [{ start: startDate, end: endDate }, setDateRange] = useState(() => monthToDateRange(month));
   const [driver, setDriver] = useState("");
   const [type, setType] = useState<WoodClassType | "">("");
   const [diameterClass, setDiameterClass] = useState<DiameterClassType | "">("");
   const [exporting, setExporting] = useState<"pdf" | "xlsx" | null>(null);
 
-  const supplierMonthReceipts = useMemo(
-    () => receiptsForSupplierMonth(receipts, supplier, month),
-    [receipts, supplier, month],
+  const invalidRange = startDate > endDate;
+
+  const supplierRangeReceipts = useMemo(
+    () => (invalidRange ? [] : receiptsForSupplierRange(receipts, supplier, startDate, endDate)),
+    [receipts, supplier, startDate, endDate, invalidRange],
   );
 
   const driverOptions = useMemo(
-    () => Array.from(new Set(supplierMonthReceipts.map((r) => r.driver))).sort(),
-    [supplierMonthReceipts],
+    () => Array.from(new Set(supplierRangeReceipts.map((r) => r.driver))).sort(),
+    [supplierRangeReceipts],
   );
 
   const filters: StatementFilters = {
     supplier,
-    month,
+    startDate,
+    endDate,
     driver: driver || undefined,
     type: type || undefined,
     diameterClass: diameterClass || undefined,
@@ -77,7 +92,31 @@ export default function StatementPanel({ supplier, month, receipts, onClose }: S
   return (
     <Modal open onClose={onClose} title={`Emitir relatório — ${supplier}`} size="lg">
       <div className="space-y-5">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+          <div>
+            <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-ink-soft">
+              Data inicial
+            </label>
+            <input
+              type="date"
+              value={startDate}
+              max={endDate}
+              onChange={(e) => setDateRange((prev) => ({ ...prev, start: e.target.value }))}
+              className={selectClass}
+            />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-ink-soft">
+              Data final
+            </label>
+            <input
+              type="date"
+              value={endDate}
+              min={startDate}
+              onChange={(e) => setDateRange((prev) => ({ ...prev, end: e.target.value }))}
+              className={selectClass}
+            />
+          </div>
           <div>
             <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-ink-soft">
               Motorista
@@ -124,6 +163,12 @@ export default function StatementPanel({ supplier, month, receipts, onClose }: S
             </select>
           </div>
         </div>
+
+        {invalidRange && (
+          <p className="rounded-control bg-danger/10 px-3.5 py-2.5 text-[12.5px] font-semibold text-danger-text">
+            A data inicial não pode ser depois da data final.
+          </p>
+        )}
 
         <div className="overflow-x-auto rounded-control border border-line">
           <table className="w-full min-w-180 border-collapse text-left text-[12.5px]">

@@ -38,7 +38,9 @@ export interface Receipt {
   id: string;
   invoiceNumber: string;
   supplier: string;
+  supplierId: string;
   farm: string;
+  farmId: string;
   length: number;
   type: WoodClass;
   diameterClass: DiameterClass;
@@ -48,6 +50,8 @@ export interface Receipt {
   notes: string | null;
   grossWeight: number;
   tareWeight: number;
+  trailerGrossWeight: number | null;
+  trailerTareWeight: number | null;
   netWeight: number;
   invoiceWeight: number | null;
   pricePerTon: number | null;
@@ -58,8 +62,9 @@ export interface Receipt {
 
 export interface CreateReceiptPayload {
   invoiceNumber: string;
-  supplier: string;
-  farm: string;
+  supplierId: string;
+  farmId?: string;
+  newFarmName?: string;
   length: number;
   type: WoodClass;
   diameterClass: DiameterClass;
@@ -69,6 +74,8 @@ export interface CreateReceiptPayload {
   notes?: string;
   grossWeight: number;
   tareWeight: number;
+  trailerGrossWeight?: number;
+  trailerTareWeight?: number;
   invoiceWeight: number;
   pricePerTon: number;
 }
@@ -80,5 +87,19 @@ export async function getReceipts(): Promise<Receipt[]> {
 
 export async function createReceipt(payload: CreateReceiptPayload): Promise<Receipt> {
   const { data } = await api.post<Receipt>("/receipt", payload);
+  return data;
+}
+
+export async function updateReceipt(id: string, payload: Partial<CreateReceiptPayload>): Promise<Receipt> {
+  const { data } = await api.patch<Receipt>(`/receipt/${id}`, payload);
+  return data;
+}
+
+export async function deleteReceipt(id: string): Promise<void> {
+  await api.delete(`/receipt/${id}`);
+}
+
+export async function unlinkComplementaryInvoice(receiptId: string): Promise<Receipt> {
+  const { data } = await api.delete<Receipt>(`/complementary-invoice/receipt/${receiptId}`);
   return data;
 }

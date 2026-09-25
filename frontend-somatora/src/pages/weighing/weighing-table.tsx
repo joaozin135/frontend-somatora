@@ -2,6 +2,8 @@ import { diameterClassLabels, woodClassLabels, type Receipt } from "../../servic
 
 export interface WeighingTableProps {
   receipts: Receipt[];
+  onEdit: (receipt: Receipt) => void;
+  onDelete: (receipt: Receipt) => void;
 }
 
 const columns = [
@@ -18,6 +20,7 @@ const columns = [
   "Motorista",
   "Peso Líquido",
   "Status",
+  "",
 ];
 
 const dash = <span className="text-ink-placeholder">—</span>;
@@ -53,7 +56,7 @@ function StatusBadge({ receipt }: { receipt: Receipt }) {
   return dash;
 }
 
-export default function WeighingTable({ receipts }: WeighingTableProps) {
+export default function WeighingTable({ receipts, onEdit, onDelete }: WeighingTableProps) {
   if (receipts.length === 0) {
     return (
       <div className="rounded-card border border-line bg-paper-raised px-6 py-12 text-center text-[13px] text-ink-soft shadow-card">
@@ -64,7 +67,7 @@ export default function WeighingTable({ receipts }: WeighingTableProps) {
 
   return (
     <div className="overflow-x-auto rounded-card border border-line bg-paper-raised shadow-card">
-      <table className="w-full min-w-260 border-collapse text-left text-[13px]">
+      <table className="w-full min-w-280 border-collapse text-left text-[13px]">
         <thead>
           <tr className="border-b border-line bg-paper">
             {columns.map((column) => (
@@ -98,6 +101,24 @@ export default function WeighingTable({ receipts }: WeighingTableProps) {
               <td className="whitespace-nowrap px-4 py-3 font-semibold text-ink">{formatKg(receipt.netWeight)}</td>
               <td className="whitespace-nowrap px-4 py-3">
                 <StatusBadge receipt={receipt} />
+              </td>
+              <td className="whitespace-nowrap px-4 py-3 text-right">
+                <div className="flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => onEdit(receipt)}
+                    className="rounded-control border border-line px-3 py-1.5 text-[12px] font-bold text-ink transition hover:bg-paper"
+                  >
+                    Editar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onDelete(receipt)}
+                    className="rounded-control border border-danger/25 px-3 py-1.5 text-[12px] font-bold text-danger-text transition hover:bg-danger/10"
+                  >
+                    Excluir
+                  </button>
+                </div>
               </td>
             </tr>
           ))}

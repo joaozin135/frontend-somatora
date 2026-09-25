@@ -1,25 +1,29 @@
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { isAxiosError } from "axios";
 import {
   createReceipt,
+  updateReceipt,
   diameterClassLabels,
   woodClassLabels,
   WoodClass,
   DiameterClass,
   type Receipt,
 } from "../../services/receipts";
+import { getSuppliers, type Farm, type Supplier } from "../../services/suppliers";
 
 export interface WeighingFormProps {
+  receipt?: Receipt | null;
   onCancel: () => void;
-  onCreated: (receipt: Receipt) => void;
+  onSaved: (receipt: Receipt) => void;
 }
 
 interface FormState {
   invoiceNumber: string;
   invoiceWeight: string;
   pricePerTon: string;
-  supplier: string;
-  farm: string;
+  supplierId: string;
+  farmId: string;
+  newFarmName: string;
   length: string;
   woodClass: WoodClass | "";
   diameterClass: DiameterClass | "";
@@ -29,14 +33,17 @@ interface FormState {
   notes: string;
   grossWeight: string;
   tareWeight: string;
+  trailerGrossWeight: string;
+  trailerTareWeight: string;
 }
 
 const initialState: FormState = {
   invoiceNumber: "",
   invoiceWeight: "",
   pricePerTon: "",
-  supplier: "",
-  farm: "",
+  supplierId: "",
+  farmId: "",
+  newFarmName: "",
   length: "",
   woodClass: "",
   diameterClass: "",
@@ -46,6 +53,8 @@ const initialState: FormState = {
   notes: "",
   grossWeight: "",
   tareWeight: "",
+  trailerGrossWeight: "",
+  trailerTareWeight: "",
 };
 
 const inputClass =
@@ -62,6 +71,36 @@ function Field({ label, htmlFor, children }: { label: string; htmlFor: string; c
   );
 }
 
+function receiptToFormState(receipt: Receipt): FormState {
+  return {
+    invoiceNumber: receipt.invoiceNumber,
+    invoiceWeight: receipt.invoiceWeight !== null ? String(receipt.invoiceWeight) : "",
+    pricePerTon: receipt.pricePerTon !== null ? String(receipt.pricePerTon) : "",
+    supplierId: receipt.supplierId,
+    farmId: receipt.farmId,
+    newFarmName: "",
+    length: String(receipt.length),
+    woodClass: receipt.type,
+    diameterClass: receipt.diameterClass,
+    truckPlate: receipt.truckPlate,
+    trailerPlate: receipt.trailerPlate ?? "",
+    driver: receipt.driver,
+    notes: receipt.notes ?? "",
+    grossWeight: String(receipt.grossWeight),
+    tareWeight: String(receipt.tareWeight),
+    trailerGrossWeight: receipt.trailerGrossWeight !== null ? String(receipt.trailerGrossWeight) : "",
+    trailerTareWeight: receipt.trailerTareWeight !== null ? String(receipt.trailerTareWeight) : "",
+  };
+}
+
+function normalizeFarmName(value: string): string {
+  return value
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLowerCase()
+    .replace(/(^|\s)\p{L}/gu, (match) => match.toUpperCase());
+}
+
 function extractErrorMessage(err: unknown): string {
   if (isAxiosError(err)) {
     const message = err.response?.data?.message;
@@ -71,19 +110,70 @@ function extractErrorMessage(err: unknown): string {
   return "Não foi possível registrar a pesagem. Tente novamente.";
 }
 
-export default function WeighingForm({ onCancel, onCreated }: WeighingFormProps) {
-  const [form, setForm] = useState<FormState>(initialState);
+export default function WeighingForm({ receipt = null, onCancel, onSaved }: WeighingFormProps) {
+  const isEditing = receipt !== null;
+  const [form, setForm] = useState<FormState>(() => (receipt ? receiptToFormState(receipt) : initialState));
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const lockSupplier = isEditing && receipt!.complementaryInvoiceId !== null;
+
+  useEffect(() => {
+    getSuppliers()
+      .then((data) => setSuppliers(data.filter((s) => s.active)))
+      .catch(() => setError("Não foi possível carregar os fornecedores."));
+  }, []);
+
+  const supplierOptions = useMemo(() => {
+    if (receipt && !suppliers.some((s) => s.id === receipt.supplierId)) {
+      return [...suppliers, { id: receipt.supplierId, name: `${receipt.supplier} (inativo)` } as Supplier];
+    }
+    return suppliers;
+  }, [suppliers, receipt]);
+
+  const selectedSupplierFarms = useMemo(() => {
+    const supplier = suppliers.find((s) => s.id === form.supplierId);
+    let farms = supplier?.farms ?? [];
+    if (receipt && receipt.supplierId === form.supplierId && !farms.some((f) => f.id === receipt.farmId)) {
+      farms = [...farms, { id: receipt.farmId, name: `${receipt.farm} (removida)` } as Farm];
+    }
+    return farms;
+  }, [suppliers, form.supplierId, receipt]);
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
+  function handleSupplierChange(supplierId: string) {
+    const supplier = suppliers.find((s) => s.id === supplierId);
+    const farms = supplier?.farms ?? [];
+    setForm((prev) => ({
+      ...prev,
+      supplierId,
+      farmId: farms.length === 1 ? farms[0].id : "",
+      newFarmName: "",
+    }));
+  }
+
+  const hasTrailer = form.trailerPlate.trim() !== "";
+
   const gross = Number(form.grossWeight);
   const tare = Number(form.tareWeight);
   const hasWeights = form.grossWeight !== "" && form.tareWeight !== "" && !Number.isNaN(gross) && !Number.isNaN(tare);
-  const netWeight = hasWeights ? gross - tare : null;
+  const truckNetWeight = hasWeights ? gross - tare : null;
+
+  const trailerGross = Number(form.trailerGrossWeight);
+  const trailerTare = Number(form.trailerTareWeight);
+  const hasTrailerWeights =
+    hasTrailer &&
+    form.trailerGrossWeight !== "" &&
+    form.trailerTareWeight !== "" &&
+    !Number.isNaN(trailerGross) &&
+    !Number.isNaN(trailerTare);
+  const trailerNetWeight = hasTrailerWeights ? trailerGross - trailerTare : null;
+
+  const netWeight =
+    truckNetWeight !== null ? truckNetWeight + (hasTrailer ? (trailerNetWeight ?? 0) : 0) : null;
 
   const invoiceWeight = Number(form.invoiceWeight);
   const hasInvoiceDiff = netWeight !== null && form.invoiceWeight !== "" && !Number.isNaN(invoiceWeight);
@@ -97,8 +187,8 @@ export default function WeighingForm({ onCancel, onCreated }: WeighingFormProps)
       !form.invoiceNumber ||
       !form.invoiceWeight ||
       !form.pricePerTon ||
-      !form.supplier ||
-      !form.farm ||
+      !form.supplierId ||
+      (!form.farmId && !form.newFarmName.trim()) ||
       !form.length ||
       !form.woodClass ||
       !form.diameterClass ||
@@ -111,19 +201,31 @@ export default function WeighingForm({ onCancel, onCreated }: WeighingFormProps)
       return;
     }
 
-    if (netWeight !== null && netWeight <= 0) {
-      setError("O peso bruto deve ser maior que o peso vazio.");
+    if (truckNetWeight !== null && truckNetWeight <= 0) {
+      setError("O peso bruto do cavalo deve ser maior que o peso vazio.");
+      return;
+    }
+
+    if (hasTrailer && (!form.trailerGrossWeight || !form.trailerTareWeight)) {
+      setError("Informe o peso bruto e o peso vazio da julieta.");
+      return;
+    }
+
+    if (hasTrailer && trailerNetWeight !== null && trailerNetWeight <= 0) {
+      setError("O peso bruto da julieta deve ser maior que o peso vazio da julieta.");
       return;
     }
 
     setSubmitting(true);
     try {
-      const receipt = await createReceipt({
+      const payload = {
         invoiceNumber: form.invoiceNumber,
         invoiceWeight: Number(form.invoiceWeight),
         pricePerTon: Number(form.pricePerTon.replace(",", ".")),
-        supplier: form.supplier,
-        farm: form.farm,
+        supplierId: form.supplierId,
+        ...(form.farmId
+          ? { farmId: form.farmId }
+          : { newFarmName: normalizeFarmName(form.newFarmName) }),
         length: Number(form.length.replace(",", ".")),
         type: form.woodClass,
         diameterClass: form.diameterClass,
@@ -133,8 +235,10 @@ export default function WeighingForm({ onCancel, onCreated }: WeighingFormProps)
         notes: form.notes || undefined,
         grossWeight: gross,
         tareWeight: tare,
-      });
-      onCreated(receipt);
+        ...(hasTrailer && { trailerGrossWeight: trailerGross, trailerTareWeight: trailerTare }),
+      };
+      const saved = isEditing ? await updateReceipt(receipt!.id, payload) : await createReceipt(payload);
+      onSaved(saved);
     } catch (err) {
       setError(extractErrorMessage(err));
     } finally {
@@ -183,24 +287,58 @@ export default function WeighingForm({ onCancel, onCreated }: WeighingFormProps)
           />
         </Field>
 
-        <Field label="Fornecedor" htmlFor="supplier">
-          <input
-            id="supplier"
+        <Field label="Fornecedor" htmlFor="supplierId">
+          <select
+            id="supplierId"
             className={inputClass}
-            value={form.supplier}
-            onChange={(e) => update("supplier", e.target.value)}
-            placeholder="Nome do fornecedor"
-          />
+            value={form.supplierId}
+            disabled={lockSupplier}
+            onChange={(e) => handleSupplierChange(e.target.value)}
+          >
+            <option value="" disabled>
+              {supplierOptions.length === 0 ? "Nenhum fornecedor cadastrado" : "Selecione…"}
+            </option>
+            {supplierOptions.map((supplier) => (
+              <option key={supplier.id} value={supplier.id}>
+                {supplier.name}
+              </option>
+            ))}
+          </select>
+          {lockSupplier && (
+            <p className="mt-1.5 text-[11.5px] text-ink-soft">
+              Já vinculada a uma nota fiscal complementar — não é possível trocar o fornecedor.
+            </p>
+          )}
         </Field>
 
         <Field label="Fazenda" htmlFor="farm">
-          <input
-            id="farm"
-            className={inputClass}
-            value={form.farm}
-            onChange={(e) => update("farm", e.target.value)}
-            placeholder="Nome da fazenda"
-          />
+          {selectedSupplierFarms.length === 0 ? (
+            <input
+              id="farm"
+              className={inputClass}
+              value={form.newFarmName}
+              onChange={(e) => update("newFarmName", e.target.value)}
+              disabled={!form.supplierId}
+              placeholder={form.supplierId ? "Nome da fazenda (nova)" : "Selecione um fornecedor primeiro"}
+            />
+          ) : (
+            <select
+              id="farm"
+              className={inputClass}
+              value={form.farmId}
+              disabled={selectedSupplierFarms.length === 1}
+              onChange={(e) => update("farmId", e.target.value)}
+            >
+              <option value="" disabled>
+                Selecione…
+              </option>
+              {selectedSupplierFarms.map((farm) => (
+                <option key={farm.id} value={farm.id}>
+                  {farm.name}
+                </option>
+              ))}
+            </select>
+          )}
         </Field>
 
         <Field label="Comprimento (m)" htmlFor="length">
@@ -282,7 +420,7 @@ export default function WeighingForm({ onCancel, onCreated }: WeighingFormProps)
           />
         </Field>
 
-        <Field label="Peso bruto (kg)" htmlFor="grossWeight">
+        <Field label={hasTrailer ? "Peso bruto — Cavalo (kg)" : "Peso bruto (kg)"} htmlFor="grossWeight">
           <input
             id="grossWeight"
             type="number"
@@ -296,7 +434,7 @@ export default function WeighingForm({ onCancel, onCreated }: WeighingFormProps)
           />
         </Field>
 
-        <Field label="Peso vazio (kg)" htmlFor="tareWeight">
+        <Field label={hasTrailer ? "Peso vazio — Cavalo (kg)" : "Peso vazio (kg)"} htmlFor="tareWeight">
           <input
             id="tareWeight"
             type="number"
@@ -310,6 +448,38 @@ export default function WeighingForm({ onCancel, onCreated }: WeighingFormProps)
           />
         </Field>
 
+        {hasTrailer && (
+          <>
+            <Field label="Peso bruto — Julieta (kg)" htmlFor="trailerGrossWeight">
+              <input
+                id="trailerGrossWeight"
+                type="number"
+                min="0"
+                step="0.01"
+                inputMode="decimal"
+                className={inputClass}
+                value={form.trailerGrossWeight}
+                onChange={(e) => update("trailerGrossWeight", e.target.value)}
+                placeholder="0,00"
+              />
+            </Field>
+
+            <Field label="Peso vazio — Julieta (kg)" htmlFor="trailerTareWeight">
+              <input
+                id="trailerTareWeight"
+                type="number"
+                min="0"
+                step="0.01"
+                inputMode="decimal"
+                className={inputClass}
+                value={form.trailerTareWeight}
+                onChange={(e) => update("trailerTareWeight", e.target.value)}
+                placeholder="0,00"
+              />
+            </Field>
+          </>
+        )}
+
         <Field label="Peso líquido (kg)" htmlFor="netWeight">
           <input
             id="netWeight"
@@ -318,6 +488,13 @@ export default function WeighingForm({ onCancel, onCreated }: WeighingFormProps)
             value={netWeight !== null ? netWeight.toLocaleString("pt-BR", { minimumFractionDigits: 2 }) : ""}
             placeholder="Calculado automaticamente"
           />
+          {hasTrailer && truckNetWeight !== null && (
+            <p className="mt-1.5 text-[11.5px] text-ink-soft">
+              Cavalo: {truckNetWeight.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} kg
+              {trailerNetWeight !== null &&
+                ` + Julieta: ${trailerNetWeight.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} kg`}
+            </p>
+          )}
           {invoiceDiff !== null && (
             <p className="mt-1.5 text-[11.5px] text-ink-soft">
               {invoiceDiff > 0
@@ -359,7 +536,7 @@ export default function WeighingForm({ onCancel, onCreated }: WeighingFormProps)
           disabled={submitting}
           className="rounded-control bg-canopy px-4.5 py-2.5 text-[13px] font-extrabold text-white shadow-card transition hover:bg-canopy-dark disabled:cursor-not-allowed disabled:opacity-70"
         >
-          {submitting ? "Salvando…" : "Registrar pesagem"}
+          {submitting ? "Salvando…" : isEditing ? "Salvar alterações" : "Registrar pesagem"}
         </button>
       </div>
     </form>
