@@ -1,7 +1,6 @@
-import { useEffect, useState } from "react";
 import { Scale, Package, Building2, BarChart3 } from "lucide-react";
 import KpiCard, { type KpiTrend } from "../kpi-card";
-import { getReceipts, type Receipt } from "../../services/receipts";
+import type { Receipt } from "../../services/receipts";
 import { computeDashboardStats } from "./stats";
 
 function formatTon(kg: number) {
@@ -18,34 +17,11 @@ function buildTrend(current: number, previous: number, suffix: string): KpiTrend
   };
 }
 
-export default function DashboardKpis() {
-  const [receipts, setReceipts] = useState<Receipt[] | null>(null);
-  const [error, setError] = useState("");
+export interface DashboardKpisProps {
+  receipts: Receipt[];
+}
 
-  useEffect(() => {
-    getReceipts()
-      .then(setReceipts)
-      .catch(() => setError("Não foi possível carregar os indicadores agora."));
-  }, []);
-
-  if (error) {
-    return (
-      <div className="rounded-control border border-danger/25 bg-danger/10 px-4 py-3 text-[13px] text-danger-text">
-        {error}
-      </div>
-    );
-  }
-
-  if (!receipts) {
-    return (
-      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="h-32 animate-pulse rounded-card border border-line bg-paper-raised shadow-card" />
-        ))}
-      </section>
-    );
-  }
-
+export default function DashboardKpis({ receipts }: DashboardKpisProps) {
   const stats = computeDashboardStats(receipts);
 
   return (
