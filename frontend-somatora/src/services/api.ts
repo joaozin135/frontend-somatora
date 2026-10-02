@@ -1,4 +1,5 @@
 import axios from "axios";
+import { clearToken, readToken } from "./token-storage";
 
 export const api = axios.create({
     baseURL: import.meta.env.VITE_API_URL,
@@ -9,9 +10,22 @@ export const api = axios.create({
 })
 
 api.interceptors.request.use((config) => {
-    const token = localStorage.getItem("access_token") || sessionStorage.getItem("access_token");
+    const token = readToken();
     if (token) {
         config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
 });
+
+api.interceptors.response.use(
+    (response) => response,
+    (error) => {
+        if (axios.isAxiosError(error) && error.response?.status === 401) {
+            clearToken();
+            if (window.location.pathname !== "/") {
+                window.location.replace("/");
+            }
+        }
+        return Promise.reject(error);
+    },
+);

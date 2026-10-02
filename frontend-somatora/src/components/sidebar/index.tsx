@@ -1,4 +1,4 @@
-import { NavLink } from "react-router";
+import { NavLink, useNavigate } from "react-router";
 import {
   LayoutDashboard,
   Scale,
@@ -9,9 +9,10 @@ import {
   BarChart3,
   Settings,
   type LucideIcon,
+  LogOutIcon,
 } from "lucide-react";
 import logoIcon from "../../assets/somapar-icon.png";
-import { useAuth } from "../../contexts/authContext";
+import { useAuth, type Role } from "../../contexts/authContext";
 
 interface NavItemConfig {
   key: string;
@@ -19,6 +20,7 @@ interface NavItemConfig {
   to: string;
   icon: LucideIcon;
   badge?: number;
+  roles?: Role[];
 }
 
 export interface SidebarUser {
@@ -41,15 +43,22 @@ const operacaoItems: NavItemConfig[] = [
 
 function buildGestaoItems(reportsCount: number): NavItemConfig[] {
   return [
-    { key: "usuarios", label: "Usuários", to: "/usuarios", icon: Users },
+    { key: "usuarios", label: "Usuários", to: "/usuarios", icon: Users, roles: ["ADMIN"] },
     { key: "relatorios", label: "Relatórios", to: "/relatorios", icon: BarChart3, badge: reportsCount },
-    { key: "configuracoes", label: "Configurações", to: "/configuracoes", icon: Settings },
+    { key: "configuracoes", label: "Configurações", to: "/configuracoes", icon: Settings, roles: ["ADMIN"] },
   ];
 }
 
 
 export default function Sidebar({ reportsCount = 0 }: SidebarProps) {
-  const { user: authUser } = useAuth();
+  const { user: authUser, logout, hasRole } = useAuth();
+  const navigate = useNavigate();
+  const canSee = (item: NavItemConfig) => !item.roles || hasRole(...item.roles);
+
+  function handleLogout() {
+    logout();
+    navigate("/", { replace: true });
+  }
 
   let user: SidebarUser = {
     name: "Usuário",
@@ -90,7 +99,7 @@ export default function Sidebar({ reportsCount = 0 }: SidebarProps) {
         Operação
       </p>
       <nav className="flex flex-col gap-0.5">
-        {operacaoItems.map(({ key, ...item }) => (
+        {operacaoItems.filter(canSee).map(({ key, ...item }) => (
           <NavItem key={key} {...item} />
         ))}
       </nav>
@@ -100,7 +109,7 @@ export default function Sidebar({ reportsCount = 0 }: SidebarProps) {
         Gestão
       </p>
       <nav className="flex flex-col gap-0.5">
-        {buildGestaoItems(reportsCount).map(({ key, ...item }) => (
+        {buildGestaoItems(reportsCount).filter(canSee).map(({ key, ...item }) => (
           <NavItem key={key} {...item} />
         ))}
       </nav>
@@ -115,6 +124,15 @@ export default function Sidebar({ reportsCount = 0 }: SidebarProps) {
             <strong className="block truncate text-[13px] text-white">{user.name}</strong>
             <small className="block truncate text-[11.5px] text-on-dark/55">{user.role}</small>
           </div>
+          <button
+            type="button"
+            onClick={handleLogout}
+            aria-label="Sair"
+            title="Sair"
+            className="ml-auto flex h-8.5 w-8.5 shrink-0 items-center justify-center rounded-control text-on-dark/72 transition-colors hover:bg-white/6 hover:text-white"
+          >
+            <LogOutIcon className="h-4.25 w-4.25" strokeWidth={1.8} />
+          </button>
         </div>
       </div>
     </aside>

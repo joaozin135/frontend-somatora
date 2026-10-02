@@ -1,88 +1,112 @@
 import { jwtDecode } from "jwt-decode";
-import { createContext, useContext, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { clearToken, readToken, storeToken } from "../../services/token-storage";
+
+export type Role = "USER" | "ADMIN";
 
 interface UserToken {
   sub: string;
   email: string;
   name: string;
-  role: string;
+  role: Role;
+  exp?: number;
 }
 
 interface User {
   id: string;
   email: string;
   name: string;
-  role: string;
+  role: Role;
+}
+
+interface Session {
+  token: string;
+  user: User;
+  expiresAt: number | null;
 }
 
 interface AuthContextData {
   token: string | null;
   user: User | null;
+  isAuthenticated: boolean;
+  hasRole: (...roles: Role[]) => boolean;
   login: (token: string, remember?: boolean) => void;
   logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextData | undefined>(undefined);
 
+function toSession(token: string): Session | null {
+  try {
+    const payload = jwtDecode<UserToken>(token);
+    const expiresAt = payload.exp ? payload.exp * 1000 : null;
+    if (expiresAt !== null && expiresAt <= Date.now()) return null;
+
+    return {
+      token,
+      expiresAt,
+      user: {
+        id: payload.sub,
+        email: payload.email,
+        name: payload.name,
+        role: payload.role,
+      },
+    };
+  } catch {
+    return null;
+  }
+}
+
 interface AuthProviderProps {
   children: ReactNode;
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
-  const [token, setToken] = useState<string | null>(() => {
-    return (
-      localStorage.getItem("access_token") ||
-      sessionStorage.getItem("access_token")
-    );
-  });
-
-  const [user, setUser] = useState<User | null>(() => {
-    const storedToken =
-      localStorage.getItem("access_token") ||
-      sessionStorage.getItem("access_token");
-    if (!storedToken) {
-      return null;
-    }
-
-    try {
-      const payload = jwtDecode<UserToken>(storedToken);
-      return {
-        id: payload.sub,
-        email: payload.email,
-        name: payload.name,
-        role: payload.role,
-      };
-    } catch {
-      return null;
-    }
+  const [session, setSession] = useState<Session | null>(() => {
+    const stored = readToken();
+    const restored = stored ? toSession(stored) : null;
+    if (!restored) clearToken();
+    return restored;
   });
 
   function login(newToken: string, remember = true) {
-    localStorage.removeItem("access_token");
-    sessionStorage.removeItem("access_token");
-
-    const storage = remember ? localStorage : sessionStorage;
-    storage.setItem("access_token", newToken);
-
-    const payload = jwtDecode<UserToken>(newToken);
-    setToken(newToken);
-    setUser({
-      id: payload.sub,
-      email: payload.email,
-      name: payload.name,
-      role: payload.role,
-    });
+    const newSession = toSession(newToken);
+    if (!newSession) {
+      throw new Error("Token de acesso inválido ou expirado.");
+    }
+    storeToken(newToken, remember);
+    setSession(newSession);
   }
 
   function logout() {
-    localStorage.removeItem("access_token");
-    sessionStorage.removeItem("access_token");
-    setToken(null);
-    setUser(null);
+    clearToken();
+    setSession(null);
+  }
+
+  useEffect(() => {
+    if (!session?.expiresAt) return;
+    const timeout = setTimeout(() => {
+      clearToken();
+      setSession(null);
+    }, session.expiresAt - Date.now());
+    return () => clearTimeout(timeout);
+  }, [session]);
+
+  function hasRole(...roles: Role[]) {
+    return session !== null && roles.includes(session.user.role);
   }
 
   return (
-    <AuthContext.Provider value={{ token, user, login, logout }}>
+    <AuthContext.Provider
+      value={{
+        token: session?.token ?? null,
+        user: session?.user ?? null,
+        isAuthenticated: session !== null,
+        hasRole,
+        login,
+        logout,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

@@ -5,6 +5,9 @@ import DashboardPage from "../pages/dashboard";
 import WeighingPage from "../pages/weighing";
 import ReconciliationPage from "../pages/reconciliation";
 import SuppliersPage from "../pages/suppliers";
+import AccessDeniedPage from "../pages/access-denied";
+import ProtectedRoute from "../components/protected-route";
+import UsersPage from "../pages/users";
 
 /**
  * Formato do `handle` de cada rota — é isso que o Layout lê via useMatches()
@@ -37,50 +40,71 @@ const router = createBrowserRouter([
     // sem handle: a tela de login não passa pelo Layout, não usa Topbar
   },
   {
-    element: <Layout />, // rota "casca" sem path — só agrupa as filhas com Sidebar+Topbar
+    element: <ProtectedRoute />, // exige login para tudo abaixo
     children: [
       {
-        path: "/dashboard",
-        element: <DashboardPage />,
-        handle: (): RouteHandle => ({
-          // TODO: trocar "Ana" pelo primeiro nome do usuário logado quando o auth existir
-          title: "Bom dia, Ana.",
-          subtitle: formatToday(),
-        }),
-      },
-
-      {
-        path: "/pesagens",
-        element: <WeighingPage />,
-        handle: {
-          title: "Pesagens",
-          subtitle: "Gerencie as pesagens do dia",
-        } satisfies RouteHandle,
-      },
-      {
-        path: "/relatorios",
-        element: <ReconciliationPage />,
-        handle: {
-          title: "Relatórios",
-          subtitle: "Fechamento de notas complementares",
-        } satisfies RouteHandle,
-      },
-      {
-        path: "/fornecedores",
-        element: <SuppliersPage />,
-        handle: {
-          title: "Fornecedores",
-          subtitle: "Cadastro usado na seleção de novas pesagens",
-        } satisfies RouteHandle,
+        element: <Layout />, // rota "casca" sem path — só agrupa as filhas com Sidebar+Topbar
+        children: [
+          {
+            path: "/dashboard",
+            element: <DashboardPage />,
+            handle: (): RouteHandle => ({
+              // TODO: trocar "Ana" pelo primeiro nome do usuário logado quando o auth existir
+              title: "Bom dia, Ana.",
+              subtitle: formatToday(),
+            }),
+          },
+    
+          {
+            path: "/pesagens",
+            element: <WeighingPage />,
+            handle: {
+              title: "Pesagens",
+              subtitle: "Gerencie as pesagens do dia",
+            } satisfies RouteHandle,
+          },
+          {
+            path: "/relatorios",
+            element: <ReconciliationPage />,
+            handle: {
+              title: "Relatórios",
+              subtitle: "Fechamento de notas complementares",
+            } satisfies RouteHandle,
+          },
+          {
+            path: "/fornecedores",
+            element: <SuppliersPage />,
+            handle: {
+              title: "Fornecedores",
+              subtitle: "Cadastro usado na seleção de novas pesagens",
+            } satisfies RouteHandle,
+          },
+          {
+            path: "/acesso-negado",
+            element: <AccessDeniedPage />,
+            handle: {
+              title: "Acesso negado",
+              subtitle: "Você não tem permissão para esta página",
+            } satisfies RouteHandle,
+          },
+          // rotas só de administrador entram dentro de um ProtectedRoute com roles:
+          {
+            element: <ProtectedRoute roles={["ADMIN"]} />,
+            children: [
+              {
+                path: "/usuarios",
+                element: <UsersPage />,
+                handle: {
+                  title: "Usuários",
+                  subtitle: "Gerencie quem tem acesso ao sistema",
+                } satisfies RouteHandle,
+              },
+            ],
+          },
+        ],
       },
     ],
   },
-  // próximas rotas entram aqui, cada uma com seu próprio handle:
-  // {
-  //   path: "/usuarios",
-  //   element: <UsuariosPage />,
-  //   handle: { title: "Usuários", subtitle: "Gerencie quem tem acesso ao sistema" } satisfies RouteHandle,
-  // },
 ]);
 
 export default router;
