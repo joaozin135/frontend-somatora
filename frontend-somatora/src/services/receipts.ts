@@ -26,6 +26,19 @@ export const diameterClassLabels: Record<DiameterClass, string> = {
   ABOVE_33: "Acima de 33",
 };
 
+export const WeighedUnit = {
+  TRUCK_AND_TRAILER: "TRUCK_AND_TRAILER",
+  TRUCK: "TRUCK",
+  TRAILER: "TRAILER",
+} as const;
+export type WeighedUnit = (typeof WeighedUnit)[keyof typeof WeighedUnit];
+
+export const weighedUnitLabels: Record<WeighedUnit, string> = {
+  TRUCK_AND_TRAILER: "Cavalo + julieta",
+  TRUCK: "Só cavalo",
+  TRAILER: "Só julieta",
+};
+
 export interface ComplementaryInvoiceSummary {
   id: string;
   number: string;
@@ -44,8 +57,9 @@ export interface Receipt {
   length: number;
   type: WoodClass;
   diameterClass: DiameterClass;
-  truckPlate: string;
+  truckPlate: string | null;
   trailerPlate: string | null;
+  weighedUnit: WeighedUnit;
   driver: string;
   notes: string | null;
   grossWeight: number;
@@ -68,8 +82,9 @@ export interface CreateReceiptPayload {
   length: number;
   type: WoodClass;
   diameterClass: DiameterClass;
-  truckPlate: string;
-  trailerPlate?: string;
+  weighedUnit: WeighedUnit;
+  truckPlate: string | null;
+  trailerPlate: string | null;
   driver: string;
   notes?: string;
   grossWeight: number;

@@ -1,4 +1,4 @@
-import { diameterClassLabels, woodClassLabels, type Receipt } from "../../services/receipts";
+import { diameterClassLabels, weighedUnitLabels, woodClassLabels, type Receipt } from "../../services/receipts";
 
 export interface WeighingTableProps {
   receipts: Receipt[];
@@ -15,6 +15,7 @@ const columns = [
   "Comprimento",
   "Classe",
   "Diâmetro",
+  "Pesagem",
   "Placa Cavalo",
   "Placa Julieta",
   "Motorista",
@@ -95,7 +96,8 @@ export default function WeighingTable({ receipts, onEdit, onDelete }: WeighingTa
               </td>
               <td className="whitespace-nowrap px-4 py-3 font-semibold text-ink">{woodClassLabels[receipt.type]}</td>
               <td className="whitespace-nowrap px-4 py-3 text-ink">{diameterClassLabels[receipt.diameterClass]}</td>
-              <td className="whitespace-nowrap px-4 py-3 text-ink">{receipt.truckPlate}</td>
+              <td className="whitespace-nowrap px-4 py-3 text-ink">{weighedUnitLabels[receipt.weighedUnit]}</td>
+              <td className="whitespace-nowrap px-4 py-3 text-ink">{receipt.truckPlate ?? dash}</td>
               <td className="whitespace-nowrap px-4 py-3 text-ink">{receipt.trailerPlate ?? dash}</td>
               <td className="whitespace-nowrap px-4 py-3 text-ink">{receipt.driver}</td>
               <td className="whitespace-nowrap px-4 py-3 font-semibold text-ink">{formatKg(receipt.netWeight)}</td>

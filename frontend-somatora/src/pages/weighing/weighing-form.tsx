@@ -5,8 +5,10 @@ import {
   updateReceipt,
   diameterClassLabels,
   woodClassLabels,
+  weighedUnitLabels,
   WoodClass,
   DiameterClass,
+  WeighedUnit,
   type Receipt,
 } from "../../services/receipts";
 import { getSuppliers, type Farm, type Supplier } from "../../services/suppliers";
@@ -27,6 +29,7 @@ interface FormState {
   length: string;
   woodClass: WoodClass | "";
   diameterClass: DiameterClass | "";
+  weighedUnit: WeighedUnit;
   truckPlate: string;
   trailerPlate: string;
   driver: string;
@@ -47,6 +50,7 @@ const initialState: FormState = {
   length: "",
   woodClass: "",
   diameterClass: "",
+  weighedUnit: WeighedUnit.TRUCK_AND_TRAILER,
   truckPlate: "",
   trailerPlate: "",
   driver: "",
@@ -82,7 +86,8 @@ function receiptToFormState(receipt: Receipt): FormState {
     length: String(receipt.length),
     woodClass: receipt.type,
     diameterClass: receipt.diameterClass,
-    truckPlate: receipt.truckPlate,
+    weighedUnit: receipt.weighedUnit,
+    truckPlate: receipt.truckPlate ?? "",
     trailerPlate: receipt.trailerPlate ?? "",
     driver: receipt.driver,
     notes: receipt.notes ?? "",
@@ -155,17 +160,18 @@ export default function WeighingForm({ receipt = null, onCancel, onSaved }: Weig
     }));
   }
 
-  const hasTrailer = form.trailerPlate.trim() !== "";
+  const isCombined = form.weighedUnit === WeighedUnit.TRUCK_AND_TRAILER;
+  const mainPart = form.weighedUnit === WeighedUnit.TRAILER ? "Julieta" : "Cavalo";
 
   const gross = Number(form.grossWeight);
   const tare = Number(form.tareWeight);
   const hasWeights = form.grossWeight !== "" && form.tareWeight !== "" && !Number.isNaN(gross) && !Number.isNaN(tare);
-  const truckNetWeight = hasWeights ? gross - tare : null;
+  const mainNetWeight = hasWeights ? gross - tare : null;
 
   const trailerGross = Number(form.trailerGrossWeight);
   const trailerTare = Number(form.trailerTareWeight);
   const hasTrailerWeights =
-    hasTrailer &&
+    isCombined &&
     form.trailerGrossWeight !== "" &&
     form.trailerTareWeight !== "" &&
     !Number.isNaN(trailerGross) &&
@@ -173,7 +179,7 @@ export default function WeighingForm({ receipt = null, onCancel, onSaved }: Weig
   const trailerNetWeight = hasTrailerWeights ? trailerGross - trailerTare : null;
 
   const netWeight =
-    truckNetWeight !== null ? truckNetWeight + (hasTrailer ? (trailerNetWeight ?? 0) : 0) : null;
+    mainNetWeight !== null ? mainNetWeight + (isCombined ? (trailerNetWeight ?? 0) : 0) : null;
 
   const invoiceWeight = Number(form.invoiceWeight);
   const hasInvoiceDiff = netWeight !== null && form.invoiceWeight !== "" && !Number.isNaN(invoiceWeight);
@@ -192,7 +198,6 @@ export default function WeighingForm({ receipt = null, onCancel, onSaved }: Weig
       !form.length ||
       !form.woodClass ||
       !form.diameterClass ||
-      !form.truckPlate ||
       !form.driver ||
       !form.grossWeight ||
       !form.tareWeight
@@ -201,17 +206,27 @@ export default function WeighingForm({ receipt = null, onCancel, onSaved }: Weig
       return;
     }
 
-    if (truckNetWeight !== null && truckNetWeight <= 0) {
-      setError("O peso bruto do cavalo deve ser maior que o peso vazio.");
+    if (form.weighedUnit !== WeighedUnit.TRAILER && !form.truckPlate.trim()) {
+      setError("Informe a placa do cavalo.");
       return;
     }
 
-    if (hasTrailer && (!form.trailerGrossWeight || !form.trailerTareWeight)) {
+    if (form.weighedUnit !== WeighedUnit.TRUCK && !form.trailerPlate.trim()) {
+      setError("Informe a placa da julieta.");
+      return;
+    }
+
+    if (mainNetWeight !== null && mainNetWeight <= 0) {
+      setError(`O peso bruto ${mainPart === "Julieta" ? "da julieta" : "do cavalo"} deve ser maior que o peso vazio.`);
+      return;
+    }
+
+    if (isCombined && (!form.trailerGrossWeight || !form.trailerTareWeight)) {
       setError("Informe o peso bruto e o peso vazio da julieta.");
       return;
     }
 
-    if (hasTrailer && trailerNetWeight !== null && trailerNetWeight <= 0) {
+    if (isCombined && trailerNetWeight !== null && trailerNetWeight <= 0) {
       setError("O peso bruto da julieta deve ser maior que o peso vazio da julieta.");
       return;
     }
@@ -229,13 +244,14 @@ export default function WeighingForm({ receipt = null, onCancel, onSaved }: Weig
         length: Number(form.length.replace(",", ".")),
         type: form.woodClass,
         diameterClass: form.diameterClass,
-        truckPlate: form.truckPlate,
-        trailerPlate: form.trailerPlate || undefined,
+        weighedUnit: form.weighedUnit,
+        truckPlate: form.truckPlate.trim() || null,
+        trailerPlate: form.trailerPlate.trim() || null,
         driver: form.driver,
         notes: form.notes || undefined,
         grossWeight: gross,
         tareWeight: tare,
-        ...(hasTrailer && { trailerGrossWeight: trailerGross, trailerTareWeight: trailerTare }),
+        ...(isCombined && { trailerGrossWeight: trailerGross, trailerTareWeight: trailerTare }),
       };
       const saved = isEditing ? await updateReceipt(receipt!.id, payload) : await createReceipt(payload);
       onSaved(saved);
@@ -388,24 +404,65 @@ export default function WeighingForm({ receipt = null, onCancel, onSaved }: Weig
           </select>
         </Field>
 
-        <Field label="Placa do cavalo" htmlFor="truckPlate">
+        <div className="sm:col-span-2">
+          <p id="weighedUnit-label" className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-ink-soft">
+            O que está sendo pesado?
+          </p>
+          <div role="radiogroup" aria-labelledby="weighedUnit-label" className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+            {Object.values(WeighedUnit).map((unit) => {
+              const selected = form.weighedUnit === unit;
+              return (
+                <button
+                  key={unit}
+                  type="button"
+                  role="radio"
+                  aria-checked={selected}
+                  onClick={() => update("weighedUnit", unit)}
+                  className={`rounded-control border px-3 py-2.5 text-left text-[12.5px] transition ${
+                    selected
+                      ? "border-canopy bg-canopy/10 font-bold text-forest-deep ring-2 ring-canopy/20"
+                      : "border-line bg-paper font-semibold text-ink-soft hover:bg-paper-raised hover:text-ink"
+                  }`}
+                >
+                  {weighedUnitLabels[unit]}
+                </button>
+              );
+            })}
+          </div>
+          <p className="mt-1.5 text-[11.5px] text-ink-soft">
+            {form.weighedUnit === WeighedUnit.TRUCK_AND_TRAILER &&
+              "Mesma classe de madeira no cavalo e na julieta: os dois pesos entram nesta pesagem."}
+            {form.weighedUnit === WeighedUnit.TRUCK &&
+              "Só o peso do cavalo. Se a julieta trouxer outra classe, registre ela em outra pesagem como “Só julieta”."}
+            {form.weighedUnit === WeighedUnit.TRAILER &&
+              "Só o peso da julieta, sem somar o cavalo de novo. Use quando a julieta trouxer outra classe de madeira."}
+          </p>
+        </div>
+
+        <Field
+          label={form.weighedUnit === WeighedUnit.TRAILER ? "Placa do cavalo (opcional)" : "Placa do cavalo"}
+          htmlFor="truckPlate"
+        >
           <input
             id="truckPlate"
             className={inputClass}
             value={form.truckPlate}
             onChange={(e) => update("truckPlate", e.target.value.toUpperCase())}
-            placeholder="ABC1D23"
+            placeholder={form.weighedUnit === WeighedUnit.TRAILER ? "Cavalo que puxou a julieta" : "ABC1D23"}
             maxLength={8}
           />
         </Field>
 
-        <Field label="Placa da julieta" htmlFor="trailerPlate">
+        <Field
+          label={form.weighedUnit === WeighedUnit.TRUCK ? "Placa da julieta (opcional)" : "Placa da julieta"}
+          htmlFor="trailerPlate"
+        >
           <input
             id="trailerPlate"
             className={inputClass}
             value={form.trailerPlate}
             onChange={(e) => update("trailerPlate", e.target.value.toUpperCase())}
-            placeholder="Se houver bitrem"
+            placeholder={form.weighedUnit === WeighedUnit.TRUCK ? "Se estiver engatada" : "XYZ9A87"}
             maxLength={8}
           />
         </Field>
@@ -420,7 +477,7 @@ export default function WeighingForm({ receipt = null, onCancel, onSaved }: Weig
           />
         </Field>
 
-        <Field label={hasTrailer ? "Peso bruto — Cavalo (kg)" : "Peso bruto (kg)"} htmlFor="grossWeight">
+        <Field label={`Peso bruto — ${mainPart} (kg)`} htmlFor="grossWeight">
           <input
             id="grossWeight"
             type="number"
@@ -434,7 +491,7 @@ export default function WeighingForm({ receipt = null, onCancel, onSaved }: Weig
           />
         </Field>
 
-        <Field label={hasTrailer ? "Peso vazio — Cavalo (kg)" : "Peso vazio (kg)"} htmlFor="tareWeight">
+        <Field label={`Peso vazio — ${mainPart} (kg)`} htmlFor="tareWeight">
           <input
             id="tareWeight"
             type="number"
@@ -448,7 +505,7 @@ export default function WeighingForm({ receipt = null, onCancel, onSaved }: Weig
           />
         </Field>
 
-        {hasTrailer && (
+        {isCombined && (
           <>
             <Field label="Peso bruto — Julieta (kg)" htmlFor="trailerGrossWeight">
               <input
@@ -488,9 +545,9 @@ export default function WeighingForm({ receipt = null, onCancel, onSaved }: Weig
             value={netWeight !== null ? netWeight.toLocaleString("pt-BR", { minimumFractionDigits: 2 }) : ""}
             placeholder="Calculado automaticamente"
           />
-          {hasTrailer && truckNetWeight !== null && (
+          {isCombined && mainNetWeight !== null && (
             <p className="mt-1.5 text-[11.5px] text-ink-soft">
-              Cavalo: {truckNetWeight.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} kg
+              Cavalo: {mainNetWeight.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} kg
               {trailerNetWeight !== null &&
                 ` + Julieta: ${trailerNetWeight.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} kg`}
             </p>

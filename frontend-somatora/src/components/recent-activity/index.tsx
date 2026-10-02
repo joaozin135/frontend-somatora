@@ -1,6 +1,10 @@
 import { Link } from "react-router";
 import { History } from "lucide-react";
-import { woodClassLabels, type Receipt } from "../../services/receipts";
+import { weighedUnitLabels, woodClassLabels, type Receipt } from "../../services/receipts";
+
+function plates(receipt: Receipt) {
+  return [receipt.truckPlate, receipt.trailerPlate].filter(Boolean).join(" / ");
+}
 
 function formatKg(value: number) {
   return `${value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} kg`;
@@ -41,8 +45,8 @@ export default function RecentActivity({ receipts }: { receipts: Receipt[] }) {
               <div className="min-w-0">
                 <p className="truncate text-[13px] font-semibold text-ink">{receipt.supplier}</p>
                 <p className="truncate text-[11.5px] text-ink-soft">
-                  {woodClassLabels[receipt.type]} · {receipt.truckPlate}
-                  {receipt.trailerPlate ? ` / ${receipt.trailerPlate}` : ""} · {formatDateTime(receipt.createdAt)}
+                  {woodClassLabels[receipt.type]} · {weighedUnitLabels[receipt.weighedUnit]}
+                  {plates(receipt) && ` · ${plates(receipt)}`} · {formatDateTime(receipt.createdAt)}
                 </p>
               </div>
               <span className="shrink-0 text-[13px] font-bold text-ink">{formatKg(receipt.netWeight)}</span>
