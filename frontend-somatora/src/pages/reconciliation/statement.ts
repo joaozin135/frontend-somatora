@@ -15,6 +15,10 @@ export interface StatementTotals {
   reconciledDiffKg: number;
   pendingDiffKg: number;
   pendingValue: number;
+  /** Valor das pesagens do período: peso líquido (t) × preço por tonelada. */
+  totalValue: number;
+  /** Pesagens sem preço por tonelada — ficam fora do valor total. */
+  unpricedCount: number;
 }
 
 export interface Statement {
@@ -39,6 +43,12 @@ export function receiptsForSupplierRange(
   return receipts.filter((r) => r.supplier === supplier && isWithinRange(r.createdAt, startDate, endDate));
 }
 
+/** Valor da pesagem pelo peso líquido recebido; null quando não tem preço por tonelada. */
+export function receiptValue(receipt: Receipt): number | null {
+  if (receipt.pricePerTon === null) return null;
+  return (receipt.netWeight / 1000) * receipt.pricePerTon;
+}
+
 export function buildStatement(receipts: Receipt[], filters: StatementFilters): Statement {
   const scoped = receiptsForSupplierRange(receipts, filters.supplier, filters.startDate, filters.endDate).filter(
     (r) => {
@@ -57,10 +67,16 @@ export function buildStatement(receipts: Receipt[], filters: StatementFilters): 
     reconciledDiffKg: 0,
     pendingDiffKg: 0,
     pendingValue: 0,
+    totalValue: 0,
+    unpricedCount: 0,
   };
 
   for (const receipt of rows) {
     totals.receivedKg += receipt.netWeight;
+    const value = receiptValue(receipt);
+    if (value === null) totals.unpricedCount += 1;
+    else totals.totalValue += value;
+
     if (receipt.invoiceWeight === null) continue;
 
     totals.invoicedKg += receipt.invoiceWeight;

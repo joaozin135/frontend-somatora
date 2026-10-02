@@ -1,6 +1,6 @@
 import logoUrl from "../../assets/somapar-icon.png";
 import { diameterClassLabels, woodClassLabels, type Receipt } from "../../services/receipts";
-import type { Statement, StatementFilters } from "./statement";
+import { receiptValue, type Statement, type StatementFilters } from "./statement";
 
 // Paleta do sistema (src/index.css) em RGB, para jsPDF/ExcelJS.
 const INK_NAVY: [number, number, number] = [27, 17, 77];
@@ -79,8 +79,13 @@ function formatCurrency(value: number) {
   return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
+function roundCents(value: number) {
+  return Math.round(value * 100) / 100;
+}
+
 function rowValues(receipt: Receipt): (string | number)[] {
   const diff = receipt.invoiceWeight !== null ? receipt.netWeight - receipt.invoiceWeight : null;
+  const value = receiptValue(receipt);
   return [
     new Date(receipt.createdAt).toLocaleDateString("pt-BR"),
     receipt.invoiceNumber,
@@ -90,6 +95,8 @@ function rowValues(receipt: Receipt): (string | number)[] {
     receipt.netWeight,
     receipt.invoiceWeight ?? "",
     diff ?? "",
+    receipt.pricePerTon ?? "",
+    value !== null ? roundCents(value) : "",
     statusLabel(receipt),
   ];
 }
@@ -103,8 +110,19 @@ const HEADERS = [
   "Peso Líquido (kg)",
   "Peso NF (kg)",
   "Diferença (kg)",
+  "R$/t",
+  "Valor (R$)",
   "Status",
 ];
+
+/** Colunas de dinheiro no HEADERS — no PDF saem formatadas em R$. */
+const CURRENCY_COLUMNS = new Set([HEADERS.indexOf("R$/t"), HEADERS.indexOf("Valor (R$)")]);
+
+function unpricedNote(count: number) {
+  return count === 1
+    ? "1 pesagem sem preço por tonelada não entrou no valor total."
+    : `${count} pesagens sem preço por tonelada não entraram no valor total.`;
+}
 
 function triggerDownload(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
@@ -182,7 +200,11 @@ export async function exportStatementToPdf(statement: Statement, filters: Statem
     startY: 44,
     margin: { top: 28, left: margin, right: margin, bottom: 16 },
     head: [HEADERS],
-    body: statement.rows.map(rowValues),
+    body: statement.rows.map((receipt) =>
+      rowValues(receipt).map((cell, i) =>
+        CURRENCY_COLUMNS.has(i) && typeof cell === "number" ? formatCurrency(cell) : cell,
+      ),
+    ),
     styles: { fontSize: 8, textColor: INK, lineColor: LINE, lineWidth: 0.1 },
     headStyles: { fillColor: CANOPY, textColor: [255, 255, 255], fontStyle: "bold" },
     alternateRowStyles: { fillColor: PAPER },
@@ -194,7 +216,8 @@ export async function exportStatementToPdf(statement: Statement, filters: Statem
 
   let cardsY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
   const cardHeight = 18;
-  if (cardsY + cardHeight > pageHeight - 16) {
+  const noteHeight = statement.totals.unpricedCount > 0 ? 6 : 0;
+  if (cardsY + cardHeight + noteHeight > pageHeight - 16) {
     doc.addPage();
     drawHeader();
     drawFooter();
@@ -202,12 +225,13 @@ export async function exportStatementToPdf(statement: Statement, filters: Statem
   }
 
   const { totals } = statement;
-  const cards: { label: string; value: string; highlight?: boolean }[] = [
+  const cards: { label: string; value: string; highlight?: boolean; accent?: boolean }[] = [
     { label: "RECEBIDO", value: formatKg(totals.receivedKg) },
     { label: "NF ORIGINAL", value: formatKg(totals.invoicedKg) },
     { label: "JÁ COMPLEMENTADO", value: formatKg(totals.reconciledDiffKg) },
     { label: "DIFERENÇA PENDENTE", value: formatKg(totals.pendingDiffKg), highlight: totals.pendingDiffKg > 0 },
     { label: "VALOR PENDENTE", value: formatCurrency(totals.pendingValue) },
+    { label: "VALOR TOTAL DO PERÍODO", value: formatCurrency(totals.totalValue), accent: true },
   ];
 
   const gap = 3;
@@ -218,19 +242,27 @@ export async function exportStatementToPdf(statement: Statement, filters: Statem
     const x = margin + i * (cardWidth + gap);
     doc.setDrawColor(...LINE);
     doc.setLineWidth(0.2);
-    doc.setFillColor(...(card.highlight ? AMBER_SOFT : PAPER));
+    doc.setFillColor(...(card.accent ? INK_NAVY : card.highlight ? AMBER_SOFT : PAPER));
     doc.roundedRect(x, cardsY, cardWidth, cardHeight, 1.5, 1.5, "FD");
 
     doc.setFont("helvetica", "normal");
     doc.setFontSize(6.5);
-    doc.setTextColor(...INK_SOFT);
+    doc.setTextColor(...(card.accent ? SAGE : INK_SOFT));
     doc.text(card.label, x + 3, cardsY + 6);
 
     doc.setFont("helvetica", "bold");
     doc.setFontSize(11);
-    doc.setTextColor(...(card.highlight ? AMBER_TEXT : INK_NAVY));
+    if (card.accent) doc.setTextColor(255, 255, 255);
+    else doc.setTextColor(...(card.highlight ? AMBER_TEXT : INK_NAVY));
     doc.text(card.value, x + 3, cardsY + 14);
   });
+
+  if (totals.unpricedCount > 0) {
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(7.5);
+    doc.setTextColor(...AMBER_TEXT);
+    doc.text(unpricedNote(totals.unpricedCount), pageWidth - margin, cardsY + cardHeight + 5, { align: "right" });
+  }
 
   doc.save(buildFilename(filters, "pdf"));
 }
@@ -280,16 +312,25 @@ export async function exportStatementToXlsx(statement: Statement, filters: State
     ["NF Original (kg)", totals.invoicedKg],
     ["Já Complementado (kg)", totals.reconciledDiffKg],
     ["Diferença Pendente (kg)", totals.pendingDiffKg],
-    ["Valor Pendente Estimado (R$)", totals.pendingValue],
+    ["Valor Pendente Estimado (R$)", roundCents(totals.pendingValue)],
+    ["Valor Total do Período (R$)", roundCents(totals.totalValue)],
   ];
   for (const [label, value] of totalsRows) {
     const row = sheet.addRow([label, value]);
     row.getCell(1).font = { bold: true, color: { argb: `FF${INK_NAVY_HEX}` } };
+    if (label.endsWith("(R$)")) row.getCell(2).numFmt = '"R$" #,##0.00';
+  }
+  if (totals.unpricedCount > 0) {
+    const row = sheet.addRow([unpricedNote(totals.unpricedCount)]);
+    row.getCell(1).font = { italic: true, size: 9, color: { argb: "FF8C5417" } };
   }
 
   sheet.columns.forEach((column) => {
     column.width = 16;
   });
+  for (const index of CURRENCY_COLUMNS) {
+    sheet.getColumn(index + 1).numFmt = '"R$" #,##0.00';
+  }
 
   const buffer = await workbook.xlsx.writeBuffer();
   triggerDownload(

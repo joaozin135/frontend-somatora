@@ -10,7 +10,7 @@ import {
   type Receipt,
   type WoodClass as WoodClassType,
 } from "../../services/receipts";
-import { buildStatement, receiptsForSupplierRange, type StatementFilters } from "./statement";
+import { buildStatement, receiptValue, receiptsForSupplierRange, type StatementFilters } from "./statement";
 import { exportStatementToPdf, exportStatementToXlsx } from "./export";
 
 export interface StatementPanelProps {
@@ -27,6 +27,10 @@ const dash = <span className="text-ink-placeholder">—</span>;
 
 function formatKg(value: number) {
   return `${value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} kg`;
+}
+
+function formatCurrency(value: number) {
+  return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
 function statusLabel(receipt: Receipt) {
@@ -171,10 +175,10 @@ export default function StatementPanel({ supplier, month, receipts, onClose }: S
         )}
 
         <div className="overflow-x-auto rounded-control border border-line">
-          <table className="w-full min-w-180 border-collapse text-left text-[12.5px]">
+          <table className="w-full min-w-220 border-collapse text-left text-[12.5px]">
             <thead>
               <tr className="border-b border-line bg-paper">
-                {["Data", "Nº NF", "Motorista", "Classe", "Diâmetro", "Peso Líquido", "Peso NF", "Diferença", "Status"].map(
+                {["Data", "Nº NF", "Motorista", "Classe", "Diâmetro", "Peso Líquido", "Peso NF", "Diferença", "R$/t", "Valor", "Status"].map(
                   (c) => (
                     <th
                       key={c}
@@ -189,13 +193,14 @@ export default function StatementPanel({ supplier, month, receipts, onClose }: S
             <tbody>
               {statement.rows.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="px-3 py-6 text-center text-ink-soft">
+                  <td colSpan={11} className="px-3 py-6 text-center text-ink-soft">
                     Nenhuma pesagem encontrada com esses filtros.
                   </td>
                 </tr>
               )}
               {statement.rows.map((receipt) => {
                 const diff = receipt.invoiceWeight !== null ? receipt.netWeight - receipt.invoiceWeight : null;
+                const value = receiptValue(receipt);
                 return (
                   <tr key={receipt.id} className="border-b border-line last:border-0">
                     <td className="whitespace-nowrap px-3 py-2 text-ink">
@@ -212,6 +217,12 @@ export default function StatementPanel({ supplier, month, receipts, onClose }: S
                       {receipt.invoiceWeight !== null ? formatKg(receipt.invoiceWeight) : dash}
                     </td>
                     <td className="whitespace-nowrap px-3 py-2 text-ink">{diff !== null ? formatKg(diff) : dash}</td>
+                    <td className="whitespace-nowrap px-3 py-2 text-ink">
+                      {receipt.pricePerTon !== null ? formatCurrency(receipt.pricePerTon) : dash}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-2 font-semibold text-ink">
+                      {value !== null ? formatCurrency(value) : dash}
+                    </td>
                     <td className="whitespace-nowrap px-3 py-2 text-ink">{statusLabel(receipt)}</td>
                   </tr>
                 );
@@ -220,7 +231,7 @@ export default function StatementPanel({ supplier, month, receipts, onClose }: S
           </table>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 rounded-control border border-line bg-paper px-4 py-3 text-[12.5px] sm:grid-cols-5">
+        <div className="grid grid-cols-2 gap-3 rounded-control border border-line bg-paper px-4 py-3 text-[12.5px] sm:grid-cols-6">
           <div>
             <p className="text-ink-soft">Recebido</p>
             <p className="font-semibold text-ink">{formatKg(statement.totals.receivedKg)}</p>
@@ -239,11 +250,23 @@ export default function StatementPanel({ supplier, month, receipts, onClose }: S
           </div>
           <div>
             <p className="text-ink-soft">Valor Pendente</p>
-            <p className="font-semibold text-ink">
-              {statement.totals.pendingValue.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+            <p className="font-semibold text-ink">{formatCurrency(statement.totals.pendingValue)}</p>
+          </div>
+          <div>
+            <p className="text-ink-soft">Valor Total do Período</p>
+            <p className="font-display text-[15px] font-semibold text-forest-deep">
+              {formatCurrency(statement.totals.totalValue)}
             </p>
           </div>
         </div>
+
+        {statement.totals.unpricedCount > 0 && (
+          <p className="-mt-3 text-right text-[11.5px] text-amber-text">
+            {statement.totals.unpricedCount === 1
+              ? "1 pesagem sem preço por tonelada não entrou no valor total."
+              : `${statement.totals.unpricedCount} pesagens sem preço por tonelada não entraram no valor total.`}
+          </p>
+        )}
 
         <div className="flex flex-wrap justify-end gap-3 border-t border-line pt-4.5">
           <button
