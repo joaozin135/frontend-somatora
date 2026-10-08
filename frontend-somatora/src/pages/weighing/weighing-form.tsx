@@ -20,6 +20,7 @@ export interface WeighingFormProps {
 }
 
 interface FormState {
+  weighingDate: string;
   invoiceNumber: string;
   invoiceWeight: string;
   pricePerTon: string;
@@ -40,7 +41,19 @@ interface FormState {
   trailerTareWeight: string;
 }
 
+function toDateInputValue(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+function buildWeighingTimestamp(date: string, today: string): string {
+  if (date === today) return new Date().toISOString();
+  const [year, month, day] = date.split("-").map(Number);
+  return new Date(year, month - 1, day, 12, 0, 0).toISOString();
+}
+
 const initialState: FormState = {
+  weighingDate: toDateInputValue(new Date()),
   invoiceNumber: "",
   invoiceWeight: "",
   pricePerTon: "",
@@ -77,6 +90,7 @@ function Field({ label, htmlFor, children }: { label: string; htmlFor: string; c
 
 function receiptToFormState(receipt: Receipt): FormState {
   return {
+    weighingDate: toDateInputValue(new Date(receipt.createdAt)),
     invoiceNumber: receipt.invoiceNumber,
     invoiceWeight: receipt.invoiceWeight !== null ? String(receipt.invoiceWeight) : "",
     pricePerTon: receipt.pricePerTon !== null ? String(receipt.pricePerTon) : "",
@@ -189,6 +203,16 @@ export default function WeighingForm({ receipt = null, onCancel, onSaved }: Weig
     e.preventDefault();
     setError("");
 
+    const today = toDateInputValue(new Date());
+    if (!form.weighingDate) {
+      setError("Informe a data da pesagem.");
+      return;
+    }
+    if (form.weighingDate > today) {
+      setError("A data da pesagem não pode ser futura.");
+      return;
+    }
+
     if (
       !form.invoiceNumber ||
       !form.invoiceWeight ||
@@ -233,7 +257,10 @@ export default function WeighingForm({ receipt = null, onCancel, onSaved }: Weig
 
     setSubmitting(true);
     try {
+      const originalDate = receipt ? toDateInputValue(new Date(receipt.createdAt)) : today;
+      const dateChanged = form.weighingDate !== originalDate;
       const payload = {
+        ...(dateChanged && { createdAt: buildWeighingTimestamp(form.weighingDate, today) }),
         invoiceNumber: form.invoiceNumber,
         invoiceWeight: Number(form.invoiceWeight),
         pricePerTon: Number(form.pricePerTon.replace(",", ".")),
@@ -265,6 +292,17 @@ export default function WeighingForm({ receipt = null, onCancel, onSaved }: Weig
   return (
     <form onSubmit={handleSubmit} noValidate className="space-y-5">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <Field label="Data da pesagem" htmlFor="weighingDate">
+          <input
+            id="weighingDate"
+            type="date"
+            max={toDateInputValue(new Date())}
+            className={inputClass}
+            value={form.weighingDate}
+            onChange={(e) => update("weighingDate", e.target.value)}
+          />
+        </Field>
+
         <Field label="Nº da nota fiscal" htmlFor="invoiceNumber">
           <input
             id="invoiceNumber"

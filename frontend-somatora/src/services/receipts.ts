@@ -75,6 +75,7 @@ export interface Receipt {
 }
 
 export interface CreateReceiptPayload {
+  createdAt?: string;
   invoiceNumber: string;
   supplierId: string;
   farmId?: string;
