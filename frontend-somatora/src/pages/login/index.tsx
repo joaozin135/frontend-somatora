@@ -1,6 +1,8 @@
 import { useState } from "react";
 import logoIcon from "../../assets/somapar-icon.png";
 import { useAuth } from "../../contexts/authContext";
+import { api } from "../../services/api";
+import axios from "axios";
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -17,25 +19,18 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const response = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+      const { data } = await api.post("/api/auth/login", {
+        email,
+        password,
       });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message ?? "Credenciais inválidas");
-      }
 
       login(data.access_token, remember);
       window.location.href = "/dashboard"; // Redireciona para a página do dashboard
-
     } catch (err) {
       setError(
-        err instanceof Error
-          ? err.message
+        axios.isAxiosError(err)
+          ? (err.response?.data?.message ??
+              "Não foi possível realizar o login.")
           : "Não foi possível realizar o login. Tente novamente.",
       );
     } finally {
