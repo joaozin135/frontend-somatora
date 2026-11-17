@@ -37,8 +37,8 @@ const operacaoItems: NavItemConfig[] = [
   { key: "painel", label: "Painel", to: "/dashboard", icon: LayoutDashboard },
   { key: "pesagens", label: "Pesagens", to: "/pesagens", icon: Scale },
   { key: "fornecedores", label: "Fornecedores", to: "/fornecedores", icon: Building2 },
-  { key: "caminhoes", label: "Caminhões", to: "/caminhoes", icon: Truck },
-  { key: "classes-madeira", label: "Classes de Madeira", to: "/classes-madeira", icon: Layers },
+  // { key: "caminhoes", label: "Caminhões", to: "/caminhoes", icon: Truck },
+  // { key: "classes-madeira", label: "Classes de Madeira", to: "/classes-madeira", icon: Layers },
 ];
 
 function buildGestaoItems(reportsCount: number): NavItemConfig[] {
