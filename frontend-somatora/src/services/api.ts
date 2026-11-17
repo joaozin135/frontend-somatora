@@ -9,6 +9,8 @@ export const api = axios.create({
     }
 })
 
+console.log("URL DA API:", import.meta.env.VITE_API_URL);
+
 api.interceptors.request.use((config) => {
     const token = readToken();
     if (token) {
